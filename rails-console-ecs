@@ -89,7 +89,10 @@ private_ip=$(aws ec2 describe-instances --instance-id "$instance_id" \
   --query 'Reservations[0].Instances[0].PrivateIpAddress' \
   --output text)
 
-ssh -t "$private_ip" "docker_id=\$(docker ps -q | sed -n 1P); docker exec -it \$docker_id bash -c 'cd /app; bin/rails c $rails_env'"
+docker_id=$(ssh -t "$private_ip" "curl http://localhost:51678/v1/tasks" | \
+  jq ".Tasks[] | select(.Arn=="$task_arn").Containers[].DockerId")
+
+ssh -t "$private_ip" "docker exec -it \$docker_id bash -c 'cd /app; bin/rails c $rails_env'"
 
 aws ecs stop-task --region "$region" --task "$task_arn" --cluster "$cluster" > /dev/null
 aws ecs wait tasks-stopped --cluster "$cluster" --tasks "$task_arn" --region "$region"
