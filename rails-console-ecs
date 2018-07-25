@@ -1,0 +1,97 @@
+#!/bin/bash
+
+set -e
+
+VERSION='0.1.0'
+
+usage_exit() {
+  cat <<EOF
+Usage:
+    $(basename "${0}") [options]
+
+Options:
+    -v    Version
+    -c    Ecs cluster which a task runs in. use RAILS_C_ECS_CLUSTER by default
+    -d    Ecs task definition. use RAILS_C_TASK_DEFINITION by default
+    -e    Rails env. use RAILS_C_ENV by default
+    -r    Region. use RAILS_C_REGION by default
+EOF
+  exit "$1"
+}
+
+while getopts :c:d:e:r:vh OPT
+do
+  case $OPT in
+    "c") 
+      opt_c=$OPTARG
+      ;;
+    "d") 
+      opt_d="$OPTARG"
+      ;;
+    "e") 
+      opt_e="$OPTARG"
+      ;;
+    "r") 
+      opt_r="$OPTARG"
+      ;;
+    "v")
+      version_flag="TRUE"
+      ;;
+    "h")
+      help_flag="TRUE"
+      ;;
+    *)
+      invalid_opt_flag="TRUE"
+      ;;
+  esac
+done
+
+if [ "$version_flag" = "TRUE" ]; then
+  echo $VERSION
+  exit
+fi
+
+[ "$help_flag" = "TRUE" ] && usage_exit 0
+[ "$invalid_opt_flag" = "TRUE" ] && usage_exit 1
+[ -z "$opt_c" ] && [ -z "$RAILS_C_ECS_CLUSTER" ] && usage_exit 1
+[ -z "$opt_d" ] && [ -z "$RAILS_C_TASK_DEFINITION" ] && usage_exit 1
+[ -z "$opt_e" ] && [ -z "$RAILS_C_ENV" ] && usage_exit 1
+[ -z "$opt_r" ] && [ -z "$RAILS_C_REGION" ] && usage_exit 1
+
+cluster=${opt_c:-$RAILS_C_ECS_CLUSTER}
+task_definition=${opt_d:-$RAILS_C_TASK_DEFINITION}
+rails_env=${opt_e:-$RAILS_C_ENV}
+region=${opt_r:-$RAILS_C_REGION}
+
+container_instance_arn=$(aws ecs list-container-instances \
+  --region "$region" \
+  --cluster "$cluster" \
+  --query 'containerInstanceArns[0]' \
+  --output text)
+
+task_arn=$(aws ecs run-task \
+  --region "$region" \
+  --task-definition "$task_definition" \
+  --cluster "$cluster" \
+  --query 'tasks[0].taskArn' \
+  --output text)
+
+aws ecs wait tasks-running --cluster "$cluster" --tasks "$task_arn" --region "$region"
+
+instance_id=$(aws ecs describe-container-instances --cluster "$cluster" \
+  --container-instances "$container_instance_arn" \
+  --region "$region" \
+  --query 'containerInstances[0].ec2InstanceId' \
+  --output text)
+
+private_ip=$(aws ec2 describe-instances --instance-id "$instance_id" \
+  --region "$region" \
+  --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+  --output text)
+
+ssh -t "$private_ip" "docker_id=\$(docker ps -q | sed -n 1P); docker exec -it \$docker_id bash -c 'cd /app; bin/rails c $rails_env'"
+
+aws ecs stop-task --region "$region" --task "$task_arn" --cluster "$cluster" > /dev/null
+aws ecs wait tasks-stopped --cluster "$cluster" --tasks "$task_arn" --region "$region"
+
+exit 0
