@@ -69,13 +69,15 @@ container_instance_arn=$(aws ecs list-container-instances \
   --query 'containerInstanceArns[0]' \
   --output text)
 
-task_arn=$(aws ecs run-task \
+run_task_result=$(aws ecs run-task \
   --region "$region" \
   --task-definition "$task_definition" \
-  --cluster "$cluster" \
-  --query 'tasks[0].taskArn' \
-  --output text)
+  --cluster "$cluster")
 
+run_task_failures=$(echo "$run_task_result" | jq '.failures')
+[ -n "$run_task_failures" ] && echo "$run_task_failures" 1>&2 && exit 1
+
+task_arn=$(echo "$run_task_result" | jq '.tasks[0].taskArn')
 aws ecs wait tasks-running --cluster "$cluster" --tasks "$task_arn" --region "$region"
 
 instance_id=$(aws ecs describe-container-instances --cluster "$cluster" \
