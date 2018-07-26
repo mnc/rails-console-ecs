@@ -58,6 +58,10 @@ fi
 [ -z "$opt_e" ] && [ -z "$RAILS_C_ENV" ] && usage_exit 1
 [ -z "$opt_r" ] && [ -z "$RAILS_C_REGION" ] && usage_exit 1
 
+abort() {
+  echo "$@" 1>&2
+}
+
 cluster=${opt_c:-$RAILS_C_ECS_CLUSTER}
 task_definition=${opt_d:-$RAILS_C_TASK_DEFINITION}
 rails_env=${opt_e:-$RAILS_C_ENV}
@@ -75,7 +79,7 @@ run_task_result=$(aws ecs run-task \
   --cluster "$cluster")
 
 run_task_failures=$(echo "$run_task_result" | jq '.failures[]')
-[ -n "$run_task_failures" ] && echo "$run_task_failures" 1>&2 && exit 1
+[ -n "$run_task_failures" ] && abort "$run_task_failures"
 
 task_arn=$(echo "$run_task_result" | jq -r '.tasks[0].taskArn')
 aws ecs wait tasks-running --cluster "$cluster" --tasks "$task_arn" --region "$region"
