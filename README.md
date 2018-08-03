@@ -18,6 +18,7 @@ Usage:
 
 Options:
     -v    Version
+    -h    Show help of this command
     -c    Ecs cluster which a task runs in. use RAILS_C_ECS_CLUSTER by default
     -d    Ecs task definition. use RAILS_C_TASK_DEFINITION by default
     -e    Rails env. use RAILS_C_ENV by default
@@ -32,7 +33,16 @@ Options:
 
 ### Install rails-console-ecs
 
+#### Linux
+
 ```shell
 curl https://raw.githubusercontent.com/mnc/rails-console-ecs/master/rails-console-ecs | sudo tee /usr/bin/rails-console-ecs
 sudo chmod +x /usr/bin/rails-console-ecs
+```
+
+#### Mac
+
+```shell
+curl https://raw.githubusercontent.com/mnc/rails-console-ecs/master/rails-console-ecs | sudo tee /usr/local/bin/rails-console-ecs
+sudo chmod +x /usr/local/bin/rails-console-ecs
 ```
