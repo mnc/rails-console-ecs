@@ -46,3 +46,6 @@ sudo chmod +x /usr/bin/rails-console-ecs
 curl https://raw.githubusercontent.com/mnc/rails-console-ecs/master/rails-console-ecs | sudo tee /usr/local/bin/rails-console-ecs
 sudo chmod +x /usr/local/bin/rails-console-ecs
 ```
+
+## LICENSE
+MIT
